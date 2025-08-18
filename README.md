@@ -54,4 +54,10 @@ Kết quả là 1 file JSON gồm 2 khối: `sentence` (mảng các câu) và `w
 ---
 
 ## Demo (Mô phỏng)
+- **Video Demo**:
 [Demo video](./Demo-bai4.mp4)
+
+- **Hình ảnh Demo**:
+![Hình ảnh video](./demo1.png)
+
+![Hình ảnh video](./demo2.png)
