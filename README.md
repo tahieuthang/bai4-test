@@ -19,9 +19,7 @@ Dự án này là một ứng dụng cho phép phát audio kèm theo tính năng
 ---
 
 ## 3. Công nghệ sử dụng
-- **Frontend Framework**: Vue 3
-- **Ngôn ngữ**: JavaScript
-- **CSS**: TailwindCSS
+- Vue 3, JavaScript, TailwindCSS
 - **WaveSurfer.js** để biểu diễn waveform, zoom và scrub.
 - **Local Storage / Pinia** để lưu các file text, audio gốc và sau khi cắt.  
 
