@@ -330,33 +330,7 @@ function audioBufferToWav(abuffer) {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-function rebuildTimestamps(timestamps) {
-  let offset = 0
-  const newSentences = []
-  const newWords = []
-
-  timestamps.sentence.forEach(seg => {
-    const duration = seg.t1 - seg.t0 
-    newSentences.push({
-      ...seg,
-      t0: offset,
-      t1: offset + duration
-    })
-
-    const words = seg.s.split(/\s+/)
-    const step = duration / words.length
-    words.forEach((w, i) => {
-      const start = offset + i * step
-      const end = offset + (i + 1) * step
-      newWords.push([start, end, w])
-    })
-
-    offset += duration
-  })
-
-  return { sentence: newSentences, word: newWords }
-}
-
+// Ghép các đoạn audio dựa theo mốc đánh dấu -> bản audio mới
 async function rebuildAudioFromMarks() {
   if (!timestamps.sentence.length) return null
 
