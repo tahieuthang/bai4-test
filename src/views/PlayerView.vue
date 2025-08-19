@@ -84,13 +84,10 @@ function updateHighlight(timestamps) {
     return wordsInSentence.map(w => {
       const idx = currentIndex++
       const [startTime, endTime] = timestamps.word[idx] || [0, 0]
-
       if (currentMs >= startTime && currentMs <= endTime) {
-        // chỉ highlight từ đang đọc
         return `<span style="background: #ffeb3b;">${w}</span>`
       }
-
-      return w // từ đã qua hoặc chưa tới => giữ bình thường
+      return w
     }).join(" ")
   }).join("<br><br>")
 }

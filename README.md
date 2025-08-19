@@ -19,7 +19,7 @@ Dự án này là một ứng dụng cho phép phát audio kèm theo tính năng
 ---
 
 ## 3. Công nghệ sử dụng
-- Vue 3, JavaScript, TailwindCSS
+- Vue 3, JavaScript, TailwindCSS  
 - **WaveSurfer.js** để biểu diễn waveform, zoom và scrub.
 - **Local Storage / Pinia** để lưu các file text, audio gốc và sau khi cắt.  
 
@@ -31,7 +31,7 @@ Dự án cung cấp một workflow đầy đủ:
   **Nhập file**: người dùng nạp `smithsonian.ogg` (âm thanh) và `smithsonian.txt` (văn bản gốc).
   **Biên tập (Edit)**: nghe –  
    - **Zoom timeline** theo mili-giây để đánh dấu chính xác.  
-   - **Đánh mốc câu** (t0/t1), tự động đánh dấu từ .  
+   - **Đánh mốc câu** (t0/t1), tự động đánh dấu từ.  
    - Bỏ qua **tên người nói** khi xác định vị trí ký tự đầu câu (`b`) và độ dài (`e`).  
    - Hỗ trợ **Clear**, **Restart project**, **Save mark**.  
   **Phát + Highlight**: chuyển sang giao diện phát dựa trên các mốc đã lưu, **highlight theo thời gian** ở cấp độ câu và từ (mô phỏng “bài 01”).
