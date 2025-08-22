@@ -4,13 +4,25 @@
     
     <!-- Highlight -->
     <div class="border text-black text-left flex justify-center p-4 flex-2 overflow-auto bg-gray-100 max-w-full">
-      <span v-html="formattedText"></span>
+      <span @mousedown="startHightlight"
+        @mousemove="hightlightSentence"
+        @mouseup="endHightlight"
+        @dblclick="hightlightWord"
+        v-html="formattedText"></span>
     </div>
 
     <!-- Controls -->
-    <div class="flex justify-center gap-4">
-      <button @click="markTimestamp" class="bg-green-500 text-white px-4 py-2 rounded">
-        Mark
+    <div class="flex justify-center items-center gap-4">
+      <div class="flex justify-center items-center gap-2" v-if="startMark">
+        <button :class="!currentWord ? 'disabled' : ''" @click="markWord" class="flex items-center justify-center text-white w-[80px] h-[30px] rounded">
+          <span class="text-xs text-green-400">Mark Word</span>
+        </button>
+        <button @click="newSentence" class="flex items-center justify-center text-white w-[80px] h-[30px] rounded">
+          <span class="text-xs text-green-400">New Sentence</span>
+        </button>
+      </div>
+      <button :class="!currentSentence ? 'disabled' : ''" @click="markSentence" class="bg-green-500 text-white px-4 py-2 rounded">
+        Mark Sentence
       </button>
       <button @click="saveMarks" :class="existTimestamp ? 'disabled' : ''" class="bg-green-500 text-white px-4 py-2 rounded">
         Save Marks
@@ -27,9 +39,18 @@
       </button>
     </div>
 
-    <div class="flex justify-center items-center gap-5">
-      <label for="zoom-slider">Zoom:</label>
-      <input id="zoom-slider" type="range" min="20" max="2000" value="100" step="10" />
+    <div class="flex justify-center items-center gap-25">
+      <div class="flex justify-center items-center gap-3">
+        <label for="zoom-slider">Zoom:</label>
+        <input id="zoom-slider" type="range" min="20" max="2000" value="100" step="10" />
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <span>Speed: </span>
+        <button @click="decreaseSpeed" class="flex justify-center items-center bg-gray-300 w-5 h-10 px-2 py-1 rounded">-</button>
+        <span>{{ playbackRate.toFixed(2) }}x</span>
+        <button @click="increaseSpeed" class="flex justify-center items-center bg-gray-300 w-5 h-10 px-2 py-1 rounded">+</button>
+      </div>
     </div>
 
     <!-- Waveform -->
@@ -49,117 +70,35 @@ import { useCounterStore } from '@/stores/store'
 import { removeSpeaker, base64ToFile, base64ToObjectURL } from '@/utils/base64Utils.js'
 import { useRouter } from 'vue-router'
 import emitter from '@/utils/eventBus'
-import Toastify from 'toastify-js'
 import axios from 'axios'
+import { notify } from '@/utils/notify'
 
 const stores = useCounterStore()
 const router = useRouter()
 const emit = defineEmits()
 const audioBase64 = base64ToObjectURL(stores.getAudioFile)
-const textContent = removeSpeaker(stores.getTextFile)
+const textContent = computed(() => removeSpeaker(stores.getTextFile))
 const loadingState = ref(false)
 
-const words = textContent.replace(/\n/g, ' ').split(/\s+/)
+const words = textContent.value.replace(/\n/g, ' ').split(/\s+/)
 const highlightedIndexes = ref([])
-const formattedText = ref('')
+const formattedText = computed(() => {
+  return textContent.value
+    .split('\n')
+    .map((line, index) => {
+      let content = line
 
-// Đồng bộ hightlight với thanh waveform
-const syncHighlight = () => {
-  if (!wavesurfer) return
-  const currentTime = wavesurfer.getCurrentTime()
-  const duration = wavesurfer.getDuration()
-
-  const progress = currentTime / duration
-  const wordCount = Math.floor(progress * words.length)
-
-  highlightedIndexes.value = Array.from({ length: wordCount }, (_, i) => i)
-
-  // Format giữ xuống dòng
-  let currentIndex = 0
-  formattedText.value = textContent.split('\n').map(line => {
-    return line
-      .split(/\s+/)
-      .map(word => {
-        if (currentIndex < wordCount) {
-          currentIndex++
-          return `<span style="background: #ffeb3b">${word}</span>`
-        } else {
-          currentIndex++
-          return word
-        }
-      })
-      .join(' ')
-  }).join('<br>')
-}
+      if (highlightedSentences.value.includes(line)) {
+        content = `<mark style="background-color: #dcab08; padding: 4px; border-radius: 6px;">${line}</mark>`
+      }
+      return `<span class="sentence" data-index="${index}">${content}</span>`
+    }).join('<br>')
+})
 
 const statePlay = ref(false)
-var wavesurfer
+let wavesurfer = null
 let pxPerSec = 100
 let regions = null
-
-onMounted(async() => {
-  loadingState.value = true
-  await new Promise(resolve => setTimeout(resolve, 3000))
-  loadingState.value = false
-  const scrollContainer = document.getElementById('scroll-container')
-  const waveformEl = document.getElementById('waveform')
-  const timelineEl = document.querySelector('#waveform-timeline')
-  wavesurfer = WaveSurfer.create({
-    container: '#waveform',
-    waveColor: '#ddd',
-    progressColor: '#2196f3',
-    height: 100,
-    responsive: true,
-    url: audioBase64,
-    plugins: [
-      TimelinePlugin.create({
-        container: '#waveform-timeline',
-        primaryLabelInterval: 1,
-        secondaryLabelInterval: 0.1,
-        
-      }),
-      RegionsPlugin.create()
-    ]
-  })
-  regions = wavesurfer.registerPlugin(RegionsPlugin.create())
-  wavesurfer.on('ready', () => {
-    updateWidth()
-  })
-
-  // Zoom slider
-  document.getElementById('zoom-slider').addEventListener('input', e => {
-    pxPerSec = Number(e.target.value)
-    wavesurfer.zoom(pxPerSec)
-    updateWidth()
-  })
-
-  function updateWidth() {
-    const duration = wavesurfer.getDuration()
-    const totalWidth = duration * pxPerSec
-    waveformEl.style.width = totalWidth + 'px'
-    timelineEl.style.width = totalWidth + 'px'
-  }
-
-  wavesurfer.on('play', () => {
-    statePlay.value = true
-  })
-
-  wavesurfer.on('pause', () => {
-    statePlay.value = false
-  })
-
-  wavesurfer.on('seek', syncHighlight)
-  wavesurfer.on('audioprocess', syncHighlight)
-  wavesurfer.on('interaction', syncHighlight)
-  wavesurfer.on('ready', syncHighlight)
-
-  // ======= Zoom control =======
-  const zoomSlider = document.getElementById('zoom-slider')
-  zoomSlider.addEventListener('input', e => {
-    const pxPerSec = Number(e.target.value)
-    wavesurfer.zoom(pxPerSec)
-  })
-})
 
 const togglePlay = () => {
   if (wavesurfer) {
@@ -175,114 +114,166 @@ const existTimestamp = computed(() => {
   return timestamps.sentence.length === 0 && timestamps.word.length === 0
 })
 
-let currentSentence = null
-let currentWord = null
+let currentSentence = ref(null)
+let currentWord = ref(null)
 
 const rawLines = stores.getTextFile.split('\n').map(line => {
   const match = line.match(/^([^:]+):\s*(.*)$/);
   if (match) {
-    return { r: match[1], s: match[2] };
+    return { r: match[1], s: match[2] }
   }
   return null;
-}).filter(Boolean);
-console.log(rawLines);
+}).filter(Boolean)
 
-// Hàm markTimestamp để đánh dấu câu
-const markTimestamp = () => {
-  if (!wavesurfer) return;
-  console.log(rawLines);
-  Toastify({
-    text: "Đã đánh dấu!",
-    duration: 1500,
-    gravity: "top",
-    position: 'center',
-    style: {
-      background: "linear-gradient(to right, #00b09b, #96c93d)",
-      textAlign: 'center',
-      position: 'fixed',
-      left: '50%',
-      top: '50%',
-      transform: 'translateX(-50%) translateY(-50%)',
-      borderRadius: '10px',
-      padding: '10px',
-    },
-  }).showToast();
-  const t = Math.floor(wavesurfer.getCurrentTime() * 1000);
-  const duration = wavesurfer.getDuration() * 1000;
-  const charPos = Math.floor((t / duration) * textContent.length)
+let offset = 0
+const rawLinesWithIndex = rawLines.map(sentence => {
+  const startSen = textContent.value.indexOf(sentence.s, offset)
+  const endSen = startSen + sentence.s.length
+  offset = endSen
+  return { ...sentence, startSen, endSen }
+})
 
-  // Build rawLinesWithIndex để giữ start/end
-  let offset = 0;
-  const rawLinesWithIndex = rawLines.map(sentence => {
-    const start = textContent.indexOf(sentence.s, offset);
-    const end = start + sentence.s.length;
-    offset = end;
-    return { ...sentence, start, end };
-  });
-  
-  // Tìm câu hiện tại
-  const sentenceIndex = Math.floor((t / duration) * rawLines.length)
+const hightlight = ref(false)
+let highlightedSentences = ref([])
+let highlightedWords = ref([])
 
-  if (sentenceIndex === -1) return
-  const sentenceObj = rawLinesWithIndex[sentenceIndex]
-
-  if (!currentSentence) {
-    currentSentence = {
-      r: sentenceObj.r,
-      s: sentenceObj.s,
-      t0: t,
-      t1: null,
-      b: sentenceObj.start,
-      e: null
-    };
-    console.log("Đánh dấu t0 cho câu:", currentSentence)
-  } else if (currentSentence.t1 === null) {
-  currentSentence.t1 = t
-  currentSentence.e = sentenceObj.end
-  timestamps.sentence.push({ ...currentSentence })
-  console.log("Sentence hoàn tất và push:", currentSentence)
-
-  //  highlight trên waveform bằng region
-  regions.addRegion({
-    id: `sentence-${timestamps.sentence.length}`,
-    start: currentSentence.t0 / 1000,
-    end: currentSentence.t1 / 1000,
-    color: 'rgba(0, 150, 136, 0.3)',
-    drag: false,
-    resize: false,
-  })
-
-  const words = currentSentence.s.split(/\s+/);
-  const totalChars = words.reduce((sum, w) => sum + w.length, 0)
-  let curTime = currentSentence.t0
-  let charOffset = currentSentence.b
-
-  words.forEach(word => {
-    const wordDuration = (word.length / totalChars) * (currentSentence.t1 - currentSentence.t0)
-    const start = curTime
-    const end = curTime + wordDuration
-
-    timestamps.word.push([
-      Math.floor(start),
-      Math.floor(end),
-      word,
-      charOffset,
-      word.length
-    ]);
-
-    curTime = end;
-    charOffset += word.length + 1;
-  });
-
-  console.log("Words đã thêm:", timestamps.word)
-  currentSentence = null;
-  } else {
-    console.warn("Câu này đã được đánh dấu xong.")
+const startHightlight = () => {
+  hightlight.value = true
+}
+const hightlightSentence = () => {
+  const selection = window.getSelection()
+  if(selection.anchorNode) {
+    const selectionText = rawLinesWithIndex.find(line => {
+      return line.s === selection.anchorNode.textContent
+    })
+    if(!selectionText) return
+    notify('Đã hightlight câu', '#dcab08')
+    currentSentence.value = {
+      speaker: selectionText.r,
+      text: selectionText.s,
+      startIdx: selectionText.startSen,
+      endIdx: selectionText.endSen,
+    }
+    if(!highlightedSentences.value.includes(selectionText.s)) {
+      highlightedSentences.value.push(selectionText.s)
+    }
   }
-
-  console.log(timestamps);
+}
+const endHightlight = () => {
+  hightlight.value = false
 }
 
+const hightlightWord = () => {
+  let selection = window.getSelection().toString()
+  let testSelection = selection.split('')
+  if(testSelection[testSelection.length - 1] === ' ') {
+    testSelection = testSelection.slice(0, testSelection.length - 1)
+    selection = testSelection.join('')
+  }
+  const startIdx = currentSentence.value.text.indexOf(selection)
+  const endIdx = startIdx + selection.length
+  if(!selection) return
+  currentWord.value = {
+    speaker: currentSentence.value.speaker,
+    sentence: currentSentence.value.text,
+    word: selection,
+    startIdx: startIdx,
+    endIdx: endIdx,
+  }
+  if(!highlightedWords.value.includes(currentWord.value.word)) {
+    highlightedWords.value.push(currentWord.value.word)
+  }
+  notify('Đã hightlight từ', '#dcab08')
+}
+
+// Hàm đánh dấu câu
+let markingSentence = null
+let markingWord = null
+const startMark = ref(false)
+
+const markSentence = () => {
+  if (!wavesurfer) return
+  const t = wavesurfer.getCurrentTime() * 1000
+  if(!markingSentence) {
+    notify('Bắt đầu đánh dấu câu!', "rgb(2, 173, 153)")
+    markingSentence = {
+      r: currentSentence.value.speaker,
+      s: currentSentence.value.text,
+      t0: t,
+      t1: null,
+      b: currentSentence.value.startIdx,
+      e: currentSentence.value.endIdx
+    }
+  } else if (markingSentence.t1 === null) {
+    notify('Hoàn thành 1 câu!', "rgb(2, 173, 153)")
+    markingSentence.t1 = t
+    console.log(markingSentence);
+    
+    timestamps.sentence.push({ ...markingSentence })
+
+    //  highlight trên waveform bằng region
+    regions.addRegion({
+      start: markingSentence.t0 / 1000,
+      end: markingSentence.t1 / 1000,
+      color: 'rgba(0, 150, 136, 0.3)',
+      drag: false,
+      resize: false,
+    })
+    markingSentence = null
+    startMark.value = true
+  }
+}
+
+const getCurrentSentenceRange = () => {
+  if (timestamps.sentence.length === 0) return null
+  return timestamps.sentence[timestamps.sentence.length - 1]
+}
+
+const markWord = () => {
+  if (!wavesurfer) return
+  const t = wavesurfer.getCurrentTime() * 1000
+  const currentSentenceRange = getCurrentSentenceRange()
+  if(!markingWord) {
+    markingWord = [
+      t,
+      null,
+      currentWord.value.word,
+      currentWord.value.startIdx,
+      currentWord.value.word.length
+    ]
+    if (markingWord[0] < currentSentenceRange.t0 || markingWord[0] > currentSentenceRange.t1) {
+      notify('Quá phạm vi câu, Đánh lại!', "#ff0000")
+      markingWord = null
+      return
+    }
+    notify('Bắt đầu đánh từ!', "rgb(2, 173, 153)")
+  } else if (markingWord[1] === null) {
+    markingWord[1] = t
+    if (markingWord[0] >= currentSentenceRange.t0 && markingWord[1] <= currentSentenceRange.t1) {
+      notify('Hoàn thành 1 từ!', "rgb(2, 173, 153)")
+      timestamps.word.push([...markingWord])
+      //  highlight trên waveform bằng region
+      regions.addRegion({
+        start: markingWord[0] / 1000,
+        end: markingWord[1] / 1000,
+        color: 'rgba(255, 213, 79, 0.4)',
+        drag: false,
+        resize: false,
+      })
+      markingWord = null
+      currentWord.value = null
+    } else {
+      notify('Quá phạm vi câu, Đánh lại!', "#ff0000")
+      markingWord = null
+    }
+  }
+}
+
+const newSentence = () => {
+  startMark.value = false
+  currentSentence.value = null
+  notify('Câu mới', '#dcab08')
+}
 // gọi sau khi đã build AudioBuffer "out" từ các segment
 // Chuyển AudioBuffer -> WAV Blob 16-bit PCM
 function audioBufferToWav(abuffer) {
@@ -342,20 +333,26 @@ async function rebuildAudioFromMarks() {
   const sr = src.sampleRate
   let total = 0
   timestamps.sentence.forEach(seg => {
-    total += Math.max(0, Math.floor((seg.t1 - seg.t0) * sr / 1000))
+    const a = Math.max(0, Math.floor(seg.t0 * sr / 1000))
+    const b = Math.min(src.length, Math.floor(seg.t1 * sr / 1000))
+    if (b > a) total += (b - a)
   })
 
   const out = ctx.createBuffer(src.numberOfChannels, total, sr)
   let writePtr = 0
   timestamps.sentence.forEach(seg => {
-    const a = Math.floor(seg.t0 * sr / 1000)
-    const b = Math.floor(seg.t1 * sr / 1000)
-    const len = Math.max(0, b - a)
-    for (let ch = 0; ch < src.numberOfChannels; ch++) {
-      out.getChannelData(ch).set(src.getChannelData(ch).subarray(a, b), writePtr)
+    const a = Math.max(0, Math.floor(seg.t0 * sr / 1000))
+    const b = Math.min(src.length, Math.floor(seg.t1 * sr / 1000))
+
+    if (b > a) { // chỉ copy khi đoạn có độ dài thực sự
+      const len = b - a
+      for (let ch = 0; ch < src.numberOfChannels; ch++) {
+        out.getChannelData(ch).set(src.getChannelData(ch).subarray(a, b), writePtr)
+      }
+      writePtr += len
     }
-    writePtr += len
   })
+
 
   return out
 }
@@ -387,10 +384,15 @@ const saveMarks = () => {
   }
 }
 
-const clearMarks = () => {
+const clearMarks = async () => {
+  loadingState.value = true
+  startMark.value = false
   timestamps.sentence = []
   timestamps.word = []
+  highlightedSentences.value = []
   regions.clearRegions()
+  await new Promise(resolve => setTimeout(resolve, 500))
+  loadingState.value = false
 }
 
 const restart = async () => {
@@ -401,14 +403,94 @@ const restart = async () => {
   loadingState.value = false
   router.push('/')
 }
+
+onMounted(async() => {
+  loadingState.value = true
+  await new Promise(resolve => setTimeout(resolve, 3000))
+  loadingState.value = false
+  const scrollContainer = document.getElementById('scroll-container')
+  const waveformEl = document.getElementById('waveform')
+  const timelineEl = document.querySelector('#waveform-timeline')
+  wavesurfer = WaveSurfer.create({
+    container: '#waveform',
+    waveColor: '#ddd',
+    progressColor: '#2196f3',
+    height: 100,
+    responsive: true,
+    url: audioBase64,
+    plugins: [
+      TimelinePlugin.create({
+        container: '#waveform-timeline',
+        primaryLabelInterval: 1,
+        secondaryLabelInterval: 0.1,
+        
+      }),
+      RegionsPlugin.create()
+    ]
+  })
+  regions = wavesurfer.registerPlugin(RegionsPlugin.create())
+  wavesurfer.on('ready', () => {
+    updateWidth()
+    wavesurfer.setPlaybackRate(1)
+  })
+
+  // Zoom slider
+  document.getElementById('zoom-slider').addEventListener('input', e => {
+    pxPerSec = Number(e.target.value)
+    wavesurfer.zoom(pxPerSec)
+    updateWidth()
+  })
+
+  function updateWidth() {
+    const duration = wavesurfer.getDuration()
+    const totalWidth = duration * pxPerSec
+    waveformEl.style.width = totalWidth + 'px'
+    timelineEl.style.width = totalWidth + 'px'
+  }
+
+  wavesurfer.on('play', () => {
+    statePlay.value = true
+  })
+
+  wavesurfer.on('pause', () => {
+    statePlay.value = false
+  })
+
+  // ======= Zoom control =======
+  const zoomSlider = document.getElementById('zoom-slider')
+  zoomSlider.addEventListener('input', e => {
+    const pxPerSec = Number(e.target.value)
+    wavesurfer.zoom(pxPerSec)
+  })
+})
+
+const playbackRate = ref(1.0)
+
+const increaseSpeed = () => {
+  if (playbackRate.value < 2) {
+    playbackRate.value += 0.25
+    wavesurfer.setPlaybackRate(playbackRate.value)
+  }
+}
+
+const decreaseSpeed = () => {
+  if (playbackRate.value > 0.5) {
+    playbackRate.value -= 0.25
+    wavesurfer.setPlaybackRate(playbackRate.value)
+  }
+}
 </script>
 
 <style scoped>
 .disabled {
   background-color: #ccc;
-  color: #666;
+  color: black;
   cursor: not-allowed;
   opacity: 0.6;
   pointer-events: none;
+  position: relative;
+}
+.disabled span {
+  color: black;
 }
 </style>

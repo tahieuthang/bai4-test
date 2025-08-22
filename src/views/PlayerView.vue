@@ -2,8 +2,16 @@
   <div class="p-4 flex flex-col gap-3 h-screen">
     <h2 class="text-xl font-bold mb-2">Highlight + Audio Timeline</h2>
   
-    <div class="border text-black text-left flex justify-center p-4 flex-2 overflow-auto bg-gray-100 max-w-full">
-      <span v-html="formattedText"></span>
+    <div class="flex items-center border text-black text-left flex justify-center p-4 flex-2 overflow-auto bg-gray-100 max-w-full">
+      <template v-for="(seg, i) in segments" :key="i">
+        <span v-if="seg.type === 'plain'" class="plain">{{ seg.text }}</span>
+        <span
+          v-else
+          class="word"
+          :class="{ active: isWordActive(seg.word) }"
+          :data-word-index="seg.wordIndex"
+        >{{ seg.text }}</span>
+      </template>
     </div>
 
     <div class="flex justify-center gap-4">
@@ -27,15 +35,17 @@ import WaveSurfer from 'wavesurfer.js'
 import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline.esm.js'
 import { useCounterStore } from '@/stores/store'
 
-const formattedText = ref('')
+const combinedText = ref('')
 const statePlay = ref(false)
 let wavesurfer = null
 const stores = useCounterStore()
 let timestamps = stores.getTimestamps
+let currentMs = ref(0)
+let segments = ref([])
+let timerId = null
 
 onMounted(() => {
   timestamps = normalizeTimestamps(timestamps)
-  console.log(timestamps);
   if (!stores.audioBlob || !timestamps) return
 
   // blob => object URL
@@ -52,16 +62,19 @@ onMounted(() => {
     ]
   })
 
-  wavesurfer.on('audioprocess', () => {
-    updateHighlight(timestamps)
+  buildCombinedText()
+  buildSegmentsFromWords()
+  wavesurfer.on('play', () => {
+    timerId = setInterval(() => {
+      currentMs.value = Math.floor(wavesurfer.getCurrentTime() * 1000)
+    }, 60)
   })
-  wavesurfer.on('seek', () => updateHighlight(timestamps))
-  wavesurfer.on('interaction', () => updateHighlight(timestamps))
-  wavesurfer.on('ready', () => updateHighlight(timestamps))
+  wavesurfer.on('audioprocess', (time) => {
+    currentMs.value = Math.floor(time * 1000)
+  })
 
-  formattedText.value = timestamps.sentence
-    .map(s => `${s.r}: ${s.s}`)
-    .join('<br><br>')
+  wavesurfer.on('pause', () => clearInterval(timerId))
+  wavesurfer.on('finish', () => clearInterval(timerId))
 })
 
 const togglePlay = () => {
@@ -74,24 +87,58 @@ const togglePlay = () => {
   }
 }
 
-// highlight
-function updateHighlight(timestamps) {
-  const currentMs = wavesurfer.getCurrentTime() * 1000
-  let currentIndex = 0
-
-  formattedText.value = timestamps.sentence.map(s => {
-    const wordsInSentence = s.s.split(/\s+/)
-    return wordsInSentence.map(w => {
-      const idx = currentIndex++
-      const [startTime, endTime] = timestamps.word[idx] || [0, 0]
-      if (currentMs >= startTime && currentMs <= endTime) {
-        return `<span style="background: #ffeb3b;">${w}</span>`
-      }
-      return w
-    }).join(" ")
-  }).join("<br><br>")
+function isWordActive(word) {
+  if (!word) return false
+  const s = word.startMs
+  const e = word.durMs
+  return currentMs.value >= s && currentMs.value < e
 }
 
+function sanitizeSentenceText(s) {
+  return s.replace(/\s+/g, ' ').trim()
+}
+
+function buildCombinedText() {
+  const arr = timestamps.sentence.map((sObj) => sanitizeSentenceText(sObj.s))
+  combinedText.value = arr.join('\n')
+}
+
+function buildSegmentsFromWords() {
+  const txt = combinedText.value
+  const words = timestamps.word
+  const segs = []
+  let pos = 0
+
+  for (let i = 0; i < words.length; i++) {
+    const [startMs, durMs, wText, charStart, charLen] = words[i]
+    const start = charStart
+    const len = charLen
+
+    if (start > pos) {
+      segs.push({
+        type: "plain",
+        text: txt.slice(pos, start)
+      });
+    }
+
+    const displayText = txt.slice(start, start + len)
+
+    segs.push({
+      type: "word",
+      text: displayText,
+      word: { startMs, durMs, text: wText, charStart: start, charLen: len },
+      wordIndex: i
+    });
+
+    pos = start + len
+  }
+
+  if (pos < txt.length) {
+    segs.push({ type: "plain", text: txt.slice(pos) })
+  }
+
+  segments.value = segs
+}
 
 // Chuyển tgian bắt đầu cho audio về 0
 function normalizeTimestamps(timestamps) {
@@ -114,3 +161,25 @@ function normalizeTimestamps(timestamps) {
   }
 }
 </script>
+
+<style scoped>
+.plain { color: inherit; }
+.word {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.12s, color 0.12s;
+  padding: 0 2px;
+  color: inherit;
+}
+.word.active {
+  background: #ffeb3b;
+  color: #000 !important;
+}
+.word:hover {
+  background: #fff176;
+  color: #000 !important;
+}
+.flex.text-left {
+  white-space: pre-line;
+}
+</style>
