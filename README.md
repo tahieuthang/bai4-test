@@ -31,7 +31,8 @@ Dự án cung cấp một workflow đầy đủ:
   **Nhập file**: người dùng nạp `smithsonian.ogg` (âm thanh) và `smithsonian.txt` (văn bản gốc).
   **Biên tập (Edit)**: nghe –  
    - **Zoom timeline** theo mili-giây để đánh dấu chính xác.  
-   - **Đánh mốc câu** (t0/t1), sau đo tự động đánh dấu từ trong câu đó.
+   - **Hightlight câu và từ** click chọn 1 câu muốn đánh dấu, sau khi đánh dấu xong sẽ click đúp vào từng từ trong câu
+   - **Đánh mốc từ** (t0/t1), sau đó đánh dấu từ trong câu đó (chỉ cho phép đánh dấu từ trong câu hiện tại, cần đánh câu mới sẽ click "new sentence")
    - Bỏ qua **tên người nói** khi xác định vị trí ký tự đầu câu (`b`) và độ dài (`e`).  
    - Hỗ trợ **Clear**, **Restart project**, **Save mark**.  
   **Phát + Highlight**: chuyển sang giao diện phát dựa trên các mốc đã lưu, **highlight theo thời gian** ở cấp độ câu và từ (mô phỏng “bài 01”).
@@ -57,6 +58,8 @@ Kết quả là 1 file JSON gồm 2 khối: `sentence` (mảng các câu) và `w
 ---
 
 ## 6. Demo (Mô phỏng)
+- **Link Demo**: Bạn có thể xem demo tại [đây](https://hightlight-b4.netlify.app/editor).
+
 - **Video Demo**:
 [Demo video](./demo-b4-new.mp4)
 
