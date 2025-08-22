@@ -45,7 +45,7 @@ Kết quả là 1 file JSON gồm 2 khối: `sentence` (mảng các câu) và `w
   - Chọn file: smithsonian.ogg + smithsonian.txt.
   - Nút Next → Edit khi đủ file.
   **Màn hình 2 – Edit (đánh dấu)**
-  - Waveform + playhead + zoom slider.
+  - Waveform + playhead + zoom slider + speed audio.
   - Hiển thị higtlight cho câu trên khi click chọn
   - Chi tiết câu: hiển thị văn bản, đánh mốc câu và từ, xác định màu cho vùng đánh dấu câu và các từ trong câu.
   - Nút: Play/Pause, Clear, Restart, Save mark.
@@ -58,9 +58,7 @@ Kết quả là 1 file JSON gồm 2 khối: `sentence` (mảng các câu) và `w
 
 ## 6. Demo (Mô phỏng)
 - **Video Demo**:
-[Demo video](./Demo-bai4.mp4)
+[Demo video](./demo-b4-new.mp4)
 
 - **Hình ảnh Demo**:
-![Hình ảnh video](./demo1.png)
-
-![Hình ảnh video](./demo2.png)
+![Hình ảnh video](./demo-pic.png)
