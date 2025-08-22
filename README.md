@@ -20,22 +20,21 @@ Dự án này là một ứng dụng cho phép phát audio kèm theo tính năng
 
 ## 3. Công nghệ sử dụng
 - Vue 3, JavaScript, TailwindCSS  
-- **WaveSurfer.js** để biểu diễn waveform, zoom và scrub.
+- Thư viện **WaveSurfer.js** để biểu diễn waveform, zoom và scrub.
 - **Local Storage / Pinia** để lưu các file text, audio gốc và sau khi cắt.  
 
 ---
 
-## 4. Kiến trúc hệ thống
+## 4. Luồng hệ thống
 Dự án cung cấp một workflow đầy đủ:
 
   **Nhập file**: người dùng nạp `smithsonian.ogg` (âm thanh) và `smithsonian.txt` (văn bản gốc).
   **Biên tập (Edit)**: nghe –  
    - **Zoom timeline** theo mili-giây để đánh dấu chính xác.  
-   - **Hightlight câu và từ** click chọn 1 câu muốn đánh dấu, sau khi đánh dấu xong sẽ click đúp vào từng từ trong câu
-   - **Đánh mốc từ** (t0/t1), sau đó đánh dấu từ trong câu đó (chỉ cho phép đánh dấu từ trong câu hiện tại, cần đánh câu mới sẽ click "new sentence")
+   - **Hightlight câu**: click chọn 1 câu muốn đánh dấu, sau khi đánh dấu câu đó xong sẽ click đúp vào từng từ trong câu, sau đó đánh dấu từ đó (chỉ cho phép đánh dấu từ trong câu hiện tại, cần đánh câu mới sẽ click "new sentence"). Lặp lại thao tác click đúp các từ tiếp theo và tiếp tục đánh dấu (từng từ 1) là hoàn thành xong 1 câu.
    - Bỏ qua **tên người nói** khi xác định vị trí ký tự đầu câu (`b`) và độ dài (`e`).  
-   - Hỗ trợ **Clear**, **Restart project**, **Save mark**.  
-  **Phát + Highlight**: chuyển sang giao diện phát dựa trên các mốc đã lưu, **highlight theo thời gian** ở cấp độ câu và từ (mô phỏng “bài 01”).
+   - Hỗ trợ **Clear** (Xóa toàn bộ hightlight, mark), **Restart project** (Tạo project với file text/audio mới), **Save mark** (Lưu file json các timing của câu/từ đã đánh dấu, ghép các đoạn audio đã đánh dấu trên timeline và chuyển hướng đến **Trang Phát Hightlight**).  
+   - **Trang Phát Hightlight**: chuyển sang giao diện phát dựa trên các mốc đã lưu, **highlight theo thời gian** ở cấp độ từng từ (mô phỏng “bài 01”).
 
 Kết quả là 1 file JSON gồm 2 khối: `sentence` (mảng các câu) và `word` (mảng các từ, theo thứ tự phát).
 
@@ -47,10 +46,8 @@ Kết quả là 1 file JSON gồm 2 khối: `sentence` (mảng các câu) và `w
   - Nút Next → Edit khi đủ file.
   **Màn hình 2 – Edit (đánh dấu)**
   - Waveform + playhead + zoom slider + speed audio.
-  - Hiển thị higtlight cho câu trên khi click chọn
   - Chi tiết câu: hiển thị văn bản, đánh mốc câu và từ, xác định màu cho vùng đánh dấu câu và các từ trong câu.
   - Nút: Play/Pause, Clear, Restart, Save mark.
-  - Thanh phóng to timeline (Zoom).
   **Màn hình 3 – Phát + Highlight**
   - Hiển thị câu, highlight chi tiết từ đang phát.
   - Thanh tiến trình đồng bộ với audio.
